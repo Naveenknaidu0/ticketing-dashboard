@@ -1,0 +1,214 @@
+'use client'
+
+import { useState } from 'react'
+import { X, ChevronRight, ChevronLeft, Save, AlertCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
+/**
+ * Generic Edit Dialog Template for Modifying Existing Entities
+ * 
+ * Usage:
+ * 1. Copy this component to your specific module (e.g., SkillEditDialog)
+ * 2. Replace ENTITY_NAME, FORM_FIELDS, and STEPS with your specific data
+ * 3. Implement validation and submission logic
+ * 4. Follow the multi-step wizard pattern with Save as Draft and Publish options
+ */
+
+interface EditDialogTemplateProps {
+  isOpen: boolean
+  entity: any
+  onClose: () => void
+  onSave: (updatedEntity: any, isDraft: boolean) => void
+}
+
+export function EditDialogTemplate({ isOpen, entity, onClose, onSave }: EditDialogTemplateProps) {
+  const [step, setStep] = useState(1)
+  const [hasChanges, setHasChanges] = useState(false)
+  const totalSteps = 3 // Customize this
+
+  const [formData, setFormData] = useState(entity ? {
+    name: entity.name || '',
+    description: entity.description || '',
+    status: entity.status || 'active',
+  } : {})
+
+  if (!isOpen || !entity) return null
+
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    setHasChanges(true)
+  }
+
+  const handleNext = () => {
+    if (step < totalSteps) setStep(step + 1)
+  }
+
+  const handlePrevious = () => {
+    if (step > 1) setStep(step - 1)
+  }
+
+  const handleSave = (isDraft: boolean) => {
+    const validation = validateForm()
+    if (!validation.valid) {
+      alert(`Validation Error: ${validation.errors.join(', ')}`)
+      return
+    }
+
+    const updatedEntity = {
+      ...entity,
+      name: formData.name,
+      description: formData.description,
+      status: isDraft ? 'draft' : formData.status,
+      version: (entity.version || 1) + 1,
+      updatedBy: 'current-user',
+      updatedAt: new Date().toISOString(),
+    }
+
+    onSave(updatedEntity, isDraft)
+  }
+
+  const validateForm = () => {
+    const errors = []
+    if (!formData.name?.trim()) errors.push('Name is required')
+    if (!formData.description?.trim()) errors.push('Description is required')
+    return { valid: errors.length === 0, errors }
+  }
+
+  const renderStepContent = () => {
+    switch (step) {
+      case 1:
+        return (
+          <div className="space-y-4">
+            <h3 className="font-semibold" style={{ color: '#0D3133' }}>Basic Information</h3>
+            <div>
+              <label className="text-xs font-semibold" style={{ color: '#6B6B6B' }}>Name</label>
+              <Input
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Enter name"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold" style={{ color: '#6B6B6B' }}>Description</label>
+              <textarea
+                className="w-full p-2 border rounded text-sm"
+                style={{ borderColor: '#E2E0DC', color: '#0D3133' }}
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Enter description"
+                rows={3}
+              />
+            </div>
+          </div>
+        )
+      case 2:
+        return (
+          <div className="space-y-4">
+            <h3 className="font-semibold" style={{ color: '#0D3133' }}>Configuration</h3>
+            <p className="text-sm" style={{ color: '#6B6B6B' }}>Configure step 2 fields here</p>
+          </div>
+        )
+      case 3:
+        return (
+          <div className="space-y-4">
+            <h3 className="font-semibold" style={{ color: '#0D3133' }}>Review</h3>
+            <p className="text-sm" style={{ color: '#6B6B6B' }}>Review your changes before publishing</p>
+            {hasChanges && (
+              <div className="flex items-start gap-2 p-3 rounded" style={{ backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }}>
+                <AlertCircle className="w-5 h-5 flex-shrink-0" style={{ color: '#D97706' }} />
+                <p className="text-sm" style={{ color: '#92400E' }}>You have unsaved changes</p>
+              </div>
+            )}
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-8 w-full max-w-2xl max-h-96 overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold" style={{ color: '#0D3133' }}>Edit Entity</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Progress Indicator */}
+        <div className="flex items-center justify-between mb-6">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div key={i} className="flex items-center">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
+                style={{
+                  backgroundColor: i + 1 <= step ? '#E69F50' : '#E2E0DC',
+                  color: i + 1 <= step ? '#FFFFFF' : '#6B6B6B',
+                }}
+              >
+                {i + 1}
+              </div>
+              {i < totalSteps - 1 && (
+                <div
+                  className="h-1 flex-1 mx-2"
+                  style={{ backgroundColor: i + 1 < step ? '#E69F50' : '#E2E0DC' }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Step Content */}
+        <div className="mb-8">{renderStepContent()}</div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={step === 1}
+              className="flex items-center gap-2"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </Button>
+
+            {step === totalSteps ? (
+              <Button
+                onClick={() => handleSave(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Save as Draft
+              </Button>
+            ) : (
+              <Button
+                onClick={handleNext}
+                style={{ backgroundColor: '#E69F50', color: '#FFFFFF' }}
+                className="flex items-center gap-2 font-medium"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+
+          {step === totalSteps && (
+            <Button
+              onClick={() => handleSave(false)}
+              style={{ backgroundColor: '#10B981', color: '#FFFFFF' }}
+              className="flex items-center gap-2 font-medium"
+            >
+              <Save className="w-4 h-4" />
+              Publish Changes
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
